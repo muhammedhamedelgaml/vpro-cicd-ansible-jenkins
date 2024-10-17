@@ -110,7 +110,7 @@ pipeline{
   stage("Ansible Deploy to stage env"){
       steps{
         ansiblePlaybook({
-            inventory     : 'ansible/stage.inventory',
+            inventory     : 'ansible/inventory',
             playbook      :  'ansible/site.yml',
             installation  :  'ansible',
             colorized     :   true ,
