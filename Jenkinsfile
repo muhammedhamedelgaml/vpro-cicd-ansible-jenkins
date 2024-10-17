@@ -18,6 +18,7 @@ pipeline{
     NEXUSIP = 'localhost'
     NEXUSPORT =  '8081'
     NEXUS_LOGIN = 'nexuslogin' 
+    nexuspass   = credentials('nexuspass')
     }
 
   stages{
@@ -105,8 +106,37 @@ pipeline{
      
    }
  }
-  }
   
+  stage("Ansible Deploy to stage env"){
+      steps{
+        ansiblePlaybook({
+            inventory     : 'ansible/stage.inventory',
+            playbook      :  'ansible/site.yml',
+            installation  :  'ansible',
+            colorized     :   true ,
+            credentialsId :    'appstglogin', // username and private key of instance saved at jenkins credentials 
+            disableHostKeyChecking : true ,
+            extraVars     :  [  // for nexus url
+               USER       :  'admin' ,
+               PASS       :   ${nexuspass}
+               nexusip    :  '172.35.5.1' , 
+               reponame   :  'vprofile-release'
+               groupid    :  'QA' ,
+               time       :  "${env.BUILD_TIMESTAMP}" ,
+               build      : "${env.BUILD_ID}" ,
+               artifactid :  "vproapp"
+               vprofile_version : "vproapp-${env.BUILD_ID}-${env.BUILD_TIMESTAMP}.war"
+
+            ]
+
+
+
+        })
+
+      }
+  }  
+  
+  }  
   post {
         always  {
             echo 'slack notification.'
