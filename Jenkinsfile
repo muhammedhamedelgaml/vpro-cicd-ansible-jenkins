@@ -4,117 +4,47 @@ def COLOR_MAP = [
 ]
 pipeline{
   agent any 
-  tools {
-    maven  "maven3"
-    jdk  "jdk11"
-   } 
+
+
    environment{
-    SNAP_REPO = 'vprofile-snapshot'
-    NEXUS_USER = 'admin'
-    NEXUS_PASS = 'admin123'
-    RELEASE_REPO = 'vprofile-release'
-    CENTRAL_REPO = 'vpro-maven-central' 
-    NEXUS_GRP_REPO = 'vpro-maven-group'
-    NEXUSIP = 'localhost'
-    NEXUSPORT =  '8081'
-    NEXUS_LOGIN = 'nexuslogin' 
     nexuspass   = credentials('nexuspass')
     }
 
-  stages{
-      stage('Build'){
-       steps{ 
-         sh 'mvn -s settings.xml -DskipTests install'
-       }
-       post {
-              success {
-                echo 'Now Archiving...'
-                archiveArtifacts artifacts: '**/target/*.war'
-                }
-            }
+ // now we have a problem, var BUILD_ID,TIMESTAMP  are differnet from branche main ,because it's different pipeline
+ // so we need to parameterized this pipeline 
+ // that mean admin will put the input at building the pipeline 
+  stages{  
+    // when you run the pipeline it will ask you this parameter
+   stage('setup parameter'){
+     steps{
+       script{
+         properties([
+           parameter([
+             string(
+                defaultValue: '',
+                name: 'BUILD'
+             ),
+             string(
+              defaultValue: '',
+              name: 'TIME'
+             )
+           ])
+       ])
       }
-
-// 	stage('UNIT TEST'){
-//             steps {
-//                 sh 'mvn test'
-//             }
-//         }
-
-// 	stage('INTEGRATION TEST'){
-//             steps {
-//                 sh 'mvn verify -DskipUnitTests'
-//             }
-//         }
-		
-//         stage ('CODE ANALYSIS WITH CHECKSTYLE'){
-//             steps {
-//                 sh 'mvn checkstyle:checkstyle'
-//             }
-//             post {
-//                 success {
-//                     echo 'Generated Analysis Result'
-//                 }
-//             }
-//         }
-
-//         stage('CODE ANALYSIS with SONARQUBE') {
-          
-// 		  environment {
-//              scannerHome = tool 'sonarscanner4'
-//           }
-
-//           steps {
-//             withSonarQubeEnv('sonar-pro') {
-//                sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
-//                    -Dsonar.projectName=vprofile-repo \
-//                    -Dsonar.projectVersion=1.0 \
-//                    -Dsonar.sources=src/ \
-//                    -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
-//                    -Dsonar.junit.reportsPath=target/surefire-reports/ \
-//                    -Dsonar.jacoco.reportsPath=target/jacoco.exec \
-//                    -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
-//             }
-
-//             timeout(time: 10, unit: 'MINUTES') {
-//                waitForQualityGate abortPipeline: true
-//             }
-//           }
-//         }
-
-
-  stage("uploadArtifact"){
-   steps{
-     nexusArtifactUploader(
-        nexusVersion: 'nexus3',
-        protocol: 'http',
-        nexusUrl: "${NEXUSIP}:${NEXUSPORT}",
-        groupId: 'QA',
-        version: "${env.BUILD_ID}-${env.BUILD_TIMESTAMP}",
-        repository: "${RELEASE_REPO}",
-        credentialsId: "${NEXUS_LOGIN}",
-        artifacts: [
-           [ 
-              artifactId: 'vproapp' ,
-              classifier: '',
-              file: 'target/vprofile-v2.war',
-              type: 'war'
-           ] 
-
-        ]
-
-     )
-     
+     }
    }
- }
   
-  stage("Ansible Deploy to stage env"){
+  
+  
+  
+  stage("Ansible Deploy to prod env"){
       steps{
         ansiblePlaybook({
             inventory     : 'ansible/inventory',
             playbook      :  'ansible/site.yml',
             installation  :  'ansible',
             colorized     :   true ,
-            credentialsId :    'appstglogin', // username and private key of instance saved at jenkins credentials 
+            credentialsId :    'appprodlogin', // username and private key of instance saved at jenkins credentials 
             disableHostKeyChecking : true ,
             extraVars     :  [  // for nexus url
                USER       :  'admin' ,
@@ -122,10 +52,10 @@ pipeline{
                nexusip    :  '172.35.5.1' , 
                reponame   :  'vprofile-release'
                groupid    :  'QA' ,
-               time       :  "${env.BUILD_TIMESTAMP}" ,
-               build      : "${env.BUILD_ID}" ,
+               time       :  "${env.TIME}" ,
+               build      : "${env.BUILD}" ,
                artifactid :  "vproapp"
-               vprofile_version : "vproapp-${env.BUILD_ID}-${env.BUILD_TIMESTAMP}.war"
+               vprofile_version : "vproapp-${env.BUILD}-${env.TIME}.war"
 
             ]
 
